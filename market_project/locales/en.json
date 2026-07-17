@@ -29,7 +29,10 @@
     "emailNotConfirmedBody": "We sent a confirmation link to your email when you signed up. Check your inbox (and spam folder) and click the link before logging in.",
     "resendButton": "Resend confirmation email",
     "resending": "Sending...",
-    "resendSuccess": "Sent! Check your inbox."
+    "resendSuccess": "Sent! Check your inbox.",
+    "googleButton": "Continue with Google",
+    "googleLoading": "Loading...",
+    "or": "or"
   },
   "signup": {
     "createAccount": "Create your account",
@@ -52,7 +55,8 @@
     "checkEmailTitle": "Check your email",
     "checkEmailBodyPrefix": "We sent a confirmation link to",
     "checkEmailBodySuffix": "Verify your email to activate your account.",
-    "backToLogin": "Back to Log In"
+    "backToLogin": "Back to Log In",
+    "googleButton": "Sign up with Google"
   },
   "buyer": {
     "title": "Items",
