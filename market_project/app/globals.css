@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  /* ღია, თბილი თემა — შენი ოქროსფერი ბრენდინგით */
+  --color-brand-bg: #fdfbf7;
+  --color-card-bg: #ffffff;
+  --color-card-hover: #faf7f0;
+  --color-vip-border: #d4af37;
+  --color-vip-text: #a5760a;
+  --color-text-primary: #1c1c1c;
+  --color-text-muted: #6b6b6b;
+  --color-border-subtle: #e8e3d8;
+  --color-input-bg: #ffffff;
+}
+
+@layer base {
+  html, body {
+    /* Prevents fixed+transform elements (like the off-screen CartDrawer)
+       from creating phantom horizontal scroll space on mobile Safari. */
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+  body {
+    background-color: var(--color-brand-bg);
+    color: var(--color-text-primary);
+  }
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
