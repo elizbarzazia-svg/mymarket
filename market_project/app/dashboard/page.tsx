@@ -1,5 +1,6 @@
 'use client';
 import { CATEGORIES } from '../../lib/categories';
+import { GEORGIAN_CITIES } from '../../lib/cities';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -16,6 +17,7 @@ type Product = {
   is_vip: boolean;
   image_url?: string | null;
   category?: string | null;
+  city?: string | null;
   phone?: string | null;
   created_at?: string;
   user_id?: string;
@@ -265,6 +267,7 @@ function EditProductModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [category, setCategory] = useState(product.category ?? '');
+  const [city, setCity] = useState(product.city ?? '');
   const [phone, setPhone] = useState(product.phone ?? '');
 
   const handleFile = (file: File | undefined) => {
@@ -295,7 +298,7 @@ const handleSave = async () => {
 
 const { data, error: updateError } = await supabase
   .from('products')
-  .update({ name, price: Number(price), description, is_vip: isVip, image_url: imageUrl, category, phone })
+  .update({ name, price: Number(price), description, is_vip: isVip, image_url: imageUrl, category, city, phone })
   .eq('id', product.id)
   .select()
   .single();
@@ -371,6 +374,20 @@ const { data, error: updateError } = await supabase
     <option value="">{t('seller.categoryPlaceholder')}</option>
     {CATEGORIES.map((cat) => (
       <option key={cat} value={cat}>{cat}</option>
+    ))}
+  </select>
+</div>
+
+<div>
+  <label className="text-sm font-medium text-text-muted block mb-2">{t('seller.city')}</label>
+  <select
+    value={city}
+    onChange={(e) => setCity(e.target.value)}
+    className="w-full bg-input-bg border border-border-subtle focus:border-vip-border rounded-lg px-4 py-3 text-sm outline-none transition-colors appearance-none cursor-pointer"
+  >
+    <option value="">{t('seller.cityPlaceholder')}</option>
+    {GEORGIAN_CITIES.map((c) => (
+      <option key={c} value={c}>{c}</option>
     ))}
   </select>
 </div>

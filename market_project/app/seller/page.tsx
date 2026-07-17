@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../lib/AuthContext';
 import { useLanguage } from '../../lib/LanguageContext';
 import { CATEGORIES } from '../../lib/categories';
+import { GEORGIAN_CITIES } from '../../lib/cities';
 import { VIP_TIERS } from '../../lib/vip';
 
 type Errors = {
@@ -14,6 +15,7 @@ type Errors = {
   photo?: boolean;
   phone?: boolean;
   category?: boolean;
+  city?: boolean;
 };
 
 type PhotoItem = {
@@ -30,6 +32,7 @@ export default function SellerPage() {
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('');
+  const [city, setCity] = useState('');
   const [isVip, setIsVip] = useState(false);
   const [vipTier, setVipTier] = useState<(typeof VIP_TIERS)[number]['key']>('day');
 
@@ -91,6 +94,7 @@ export default function SellerPage() {
     photo: photos.length === 0,
     phone: phone.trim() === '',
     category: category.trim() === '',
+    city: city.trim() === '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -145,6 +149,7 @@ export default function SellerPage() {
             user_id: user?.id,
             phone,
             category,
+            city,
           },
         ])
         .select('id')
@@ -170,6 +175,7 @@ export default function SellerPage() {
       setDescription('');
       setPhone('');
       setCategory('');
+      setCity('');
       setIsVip(false);
       setVipTier('day');
       setPhotos([]);
@@ -402,6 +408,26 @@ export default function SellerPage() {
               ))}
             </select>
             {errors.category && <p className="text-xs text-red-400">{t('seller.categoryRequired')}</p>}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-text-muted">
+              {t('seller.city')} <span className="text-vip-border font-bold">*</span>
+            </label>
+            <select
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                if (e.target.value) setErrors((p) => ({ ...p, city: false }));
+              }}
+              className={`${fieldClass(errors.city)} appearance-none cursor-pointer`}
+            >
+              <option value="">{t('seller.cityPlaceholder')}</option>
+              {GEORGIAN_CITIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            {errors.city && <p className="text-xs text-red-400">{t('seller.cityRequired')}</p>}
           </div>
 
           <div className="flex flex-col gap-3">

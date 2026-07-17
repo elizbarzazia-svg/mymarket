@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { isVipActive } from '../../lib/vip';
 import { useLanguage } from '../../lib/LanguageContext';
 import { useAuth } from '../../lib/AuthContext';
+import { GEORGIAN_CITIES } from '../../lib/cities';
 import FavoriteButton from '../../components/FavoriteButton';
 import AddToCartButton from '../../components/AddToCartButton';
 import MessageSellerButton from '../../components/MessageSellerButton';
@@ -19,6 +20,7 @@ type Product = {
   image_url?: string | null;
   phone?: string | null;
   category?: string | null;
+  city?: string | null;
   vip_expires_at?: string | null;
   created_at?: string;
   user_id?: string;
@@ -56,6 +58,7 @@ function BuyerPageContent() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
   const categoryFilter = searchParams.get('category') || '';
+  const cityFilter = searchParams.get('city') || '';
 
   const SORT_LABELS: Record<SortOption, string> = {
     newest: t('buyer.sortNewest'),
@@ -176,6 +179,10 @@ function BuyerPageContent() {
       list = list.filter((p) => p.category === categoryFilter);
     }
 
+    if (cityFilter) {
+      list = list.filter((p) => p.city === cityFilter);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter(
@@ -262,13 +269,20 @@ function BuyerPageContent() {
     }
   };
 
-  const clearFilter = (key: 'search' | 'category') => {
+  const clearFilter = (key: 'search' | 'category' | 'city') => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(key);
     router.push(params.toString() ? `/buyer?${params.toString()}` : '/buyer');
   };
 
-  const hasActiveFilters = Boolean(searchQuery || categoryFilter);
+  const setFilter = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    router.push(`/buyer?${params.toString()}`);
+  };
+
+  const hasActiveFilters = Boolean(searchQuery || categoryFilter || cityFilter);
 
   return (
     <div className="bg-brand-bg min-h-screen text-text-primary">
@@ -327,6 +341,20 @@ function BuyerPageContent() {
           </div>
         </div>
 
+        {/* City filter dropdown */}
+        <div className="mb-6">
+          <select
+            value={cityFilter}
+            onChange={(e) => setFilter('city', e.target.value)}
+            className="bg-card-bg border border-border-subtle hover:border-vip-border/60 rounded-lg px-4 py-2.5 text-sm outline-none transition-colors appearance-none cursor-pointer"
+          >
+            <option value="">📍 {t('buyer.cityFilterPlaceholder')}</option>
+            {GEORGIAN_CITIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
         {hasActiveFilters && (
           <div className="flex flex-wrap items-center gap-2 mb-8">
             {searchQuery && (
@@ -345,6 +373,17 @@ function BuyerPageContent() {
                 {t('buyer.categoryLabel')}: {categoryFilter}
                 <button
                   onClick={() => clearFilter('category')}
+                  className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-card-hover text-text-muted"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+            {cityFilter && (
+              <span className="flex items-center gap-2 bg-card-bg border border-border-subtle rounded-full pl-4 pr-2 py-1.5 text-sm">
+                📍 {cityFilter}
+                <button
+                  onClick={() => clearFilter('city')}
                   className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-card-hover text-text-muted"
                 >
                   ✕
@@ -415,6 +454,11 @@ function BuyerPageContent() {
                     <h3 className="text-lg font-semibold mb-1 pr-12 group-hover:text-vip-text transition-colors">
                       {product.name}
                     </h3>
+                    {product.city && (
+                      <p className="text-xs text-text-muted mb-1 flex items-center gap-1">
+                        <span>📍</span> {product.city}
+                      </p>
+                    )}
                     <p className="text-text-muted text-sm mb-6 line-clamp-2">{product.description}</p>
 
                     <div className="flex items-center justify-between pt-4 border-t border-border-subtle">
