@@ -214,7 +214,7 @@ function BuyerPageContent() {
     // Array.sort is stable in modern JS, so this preserves the ordering
     // already applied above within each group (VIP vs non-VIP).
     return list.sort((a, b) => Number(isVipActive(b)) - Number(isVipActive(a)));
-  }, [products, sort, searchQuery, categoryFilter]);
+  }, [products, sort, searchQuery, categoryFilter, cityFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedProducts.length / PAGE_SIZE));
 
