@@ -57,9 +57,9 @@ export default function SellerPage() {
 
   const MAX_PHOTOS = 6;
 
-  // Convert any image (including HEIC/HEIF from phones) to JPEG via canvas
-  const convertToJpeg = (file: File): Promise<{ file: File; preview: string }> =>
-    new Promise((resolve, reject) => {
+  // Convert a file to JPEG via canvas — runs at upload time, not at preview time
+  const convertToJpeg = (file: File): Promise<File> =>
+    new Promise((resolve) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
@@ -67,61 +67,40 @@ export default function SellerPage() {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         const ctx = canvas.getContext('2d');
-        if (!ctx) { reject(new Error('no ctx')); return; }
+        if (!ctx) { URL.revokeObjectURL(url); resolve(file); return; }
         ctx.drawImage(img, 0, 0);
         canvas.toBlob(
           (blob) => {
             URL.revokeObjectURL(url);
-            if (!blob) { reject(new Error('toBlob failed')); return; }
-            const jpegFile = new File(
+            if (!blob) { resolve(file); return; }
+            resolve(new File(
               [blob],
               file.name.replace(/\.[^.]+$/, '.jpg'),
               { type: 'image/jpeg' },
-            );
-            resolve({ file: jpegFile, preview: URL.createObjectURL(blob) });
+            ));
           },
           'image/jpeg',
           0.88,
         );
       };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load error')); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
       img.src = url;
     });
 
-  const handleFiles = async (fileList: FileList | null) => {
+  const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     const incoming = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
     if (incoming.length === 0) return;
 
     setPhotos((prev) => {
       const room = MAX_PHOTOS - prev.length;
-      const limited = incoming.slice(0, Math.max(0, room));
-      // Add placeholders immediately so UI feels responsive
-      const placeholders = limited.map((file) => ({
+      const toAdd = incoming.slice(0, Math.max(0, room)).map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }));
-      return [...prev, ...placeholders];
+      return [...prev, ...toAdd];
     });
     setErrors((prev) => ({ ...prev, photo: false }));
-
-    // Then convert in background and replace placeholders with JPEG versions
-    const room = MAX_PHOTOS - (photos.length);
-    const limited = incoming.slice(0, Math.max(0, room));
-    const converted = await Promise.all(limited.map((f) => convertToJpeg(f).catch(() => null)));
-
-    setPhotos((prev) => {
-      const next = [...prev];
-      let ci = 0;
-      for (let i = next.length - limited.length; i < next.length; i++) {
-        const c = converted[ci++];
-        if (c) {
-          URL.revokeObjectURL(next[i].preview);
-          next[i] = c;
-        }
-      }
-      return next;
-    });
   };
 
   const removePhoto = (index: number) => {
@@ -158,14 +137,14 @@ export default function SellerPage() {
     setStatus('idle');
 
     try {
-      // Upload every photo to Storage first.
+      // Upload every photo to Storage first (convert to JPEG so all browsers can display them).
       const uploadedUrls: string[] = [];
       for (const photo of photos) {
-        const ext = photo.file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const jpegFile = await convertToJpeg(photo.file);
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('product-images')
-          .upload(fileName, photo.file);
+          .upload(fileName, jpegFile, { contentType: 'image/jpeg' });
 
         if (uploadError) throw uploadError;
 
