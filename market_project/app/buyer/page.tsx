@@ -342,17 +342,20 @@ function BuyerPageContent() {
         </div>
 
         {/* City filter dropdown */}
-        <div className="mb-6">
+        <div className="mb-6 relative inline-block">
           <select
             value={cityFilter}
             onChange={(e) => setFilter('city', e.target.value)}
-            className="bg-card-bg border border-border-subtle hover:border-vip-border/60 rounded-lg px-4 py-2.5 text-sm outline-none transition-colors appearance-none cursor-pointer"
+            className="bg-card-bg border border-border-subtle hover:border-vip-border/60 rounded-lg pl-4 pr-10 py-2.5 text-sm outline-none transition-colors cursor-pointer appearance-none"
           >
             <option value="">📍 {t('buyer.cityFilterPlaceholder')}</option>
             {GEORGIAN_CITIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+          <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
 
         {hasActiveFilters && (
