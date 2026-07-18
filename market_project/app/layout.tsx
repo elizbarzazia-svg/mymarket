@@ -4,6 +4,7 @@ import './globals.css';
 import CartDrawer from '@/components/CartDrawer';
 import Footer from '../components/Footer';
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 
 // ⚠️ Once deployed, add NEXT_PUBLIC_SITE_URL to your environment variables
 // (Vercel → Settings → Environment Variables), e.g. https://mymarket.ge
@@ -58,6 +59,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
           <CartDrawer />
         </Providers>
+        <Script
+          src="https://embed.tawk.to/6a5b526242b1cb1d43c2a542/1jtqbjkek"
+          strategy="lazyOnload"
+          crossOrigin="*"
+        />
       </body>
     </html>
   );
