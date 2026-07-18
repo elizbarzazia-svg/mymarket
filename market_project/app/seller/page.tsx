@@ -87,9 +87,13 @@ export default function SellerPage() {
       img.src = url;
     });
 
+  const IMAGE_EXTS = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?)$/i;
+
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    const incoming = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    const incoming = Array.from(fileList).filter(
+      (f) => f.type.startsWith('image/') || IMAGE_EXTS.test(f.name),
+    );
     if (incoming.length === 0) return;
 
     setPhotos((prev) => {
