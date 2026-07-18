@@ -57,20 +57,71 @@ export default function SellerPage() {
 
   const MAX_PHOTOS = 6;
 
-  const handleFiles = (fileList: FileList | null) => {
+  // Convert any image (including HEIC/HEIF from phones) to JPEG via canvas
+  const convertToJpeg = (file: File): Promise<{ file: File; preview: string }> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { reject(new Error('no ctx')); return; }
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob) { reject(new Error('toBlob failed')); return; }
+            const jpegFile = new File(
+              [blob],
+              file.name.replace(/\.[^.]+$/, '.jpg'),
+              { type: 'image/jpeg' },
+            );
+            resolve({ file: jpegFile, preview: URL.createObjectURL(blob) });
+          },
+          'image/jpeg',
+          0.88,
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load error')); };
+      img.src = url;
+    });
+
+  const handleFiles = async (fileList: FileList | null) => {
     if (!fileList) return;
     const incoming = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
     if (incoming.length === 0) return;
 
     setPhotos((prev) => {
       const room = MAX_PHOTOS - prev.length;
-      const toAdd = incoming.slice(0, Math.max(0, room)).map((file) => ({
+      const limited = incoming.slice(0, Math.max(0, room));
+      // Add placeholders immediately so UI feels responsive
+      const placeholders = limited.map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }));
-      return [...prev, ...toAdd];
+      return [...prev, ...placeholders];
     });
     setErrors((prev) => ({ ...prev, photo: false }));
+
+    // Then convert in background and replace placeholders with JPEG versions
+    const room = MAX_PHOTOS - (photos.length);
+    const limited = incoming.slice(0, Math.max(0, room));
+    const converted = await Promise.all(limited.map((f) => convertToJpeg(f).catch(() => null)));
+
+    setPhotos((prev) => {
+      const next = [...prev];
+      let ci = 0;
+      for (let i = next.length - limited.length; i < next.length; i++) {
+        const c = converted[ci++];
+        if (c) {
+          URL.revokeObjectURL(next[i].preview);
+          next[i] = c;
+        }
+      }
+      return next;
+    });
   };
 
   const removePhoto = (index: number) => {
