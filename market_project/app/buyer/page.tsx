@@ -432,7 +432,7 @@ function BuyerPageContent() {
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute top-3 right-3 z-10">
                         <FavoriteButton productId={product.id} variant="card" />
@@ -553,7 +553,7 @@ function BuyerPageContent() {
                 <img
                   src={galleryImages[galleryIndex]}
                   alt={`${selected.name} — ფოტო ${galleryIndex + 1}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
 
                 {galleryImages.length > 1 && (

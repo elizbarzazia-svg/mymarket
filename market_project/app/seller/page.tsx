@@ -57,42 +57,56 @@ export default function SellerPage() {
 
   const MAX_PHOTOS = 6;
 
-  // Convert a file to JPEG via canvas — runs at upload time, not at preview time
-  const convertToJpeg = (file: File): Promise<File> =>
-    new Promise((resolve) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { URL.revokeObjectURL(url); resolve(file); return; }
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob(
-          (blob) => {
-            URL.revokeObjectURL(url);
-            if (!blob) { resolve(file); return; }
-            resolve(new File(
-              [blob],
-              file.name.replace(/\.[^.]+$/, '.jpg'),
-              { type: 'image/jpeg' },
-            ));
-          },
-          'image/jpeg',
-          0.88,
-        );
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-      img.src = url;
+  // Read a file as a data-URL (works for every format Android gallery can return)
+  const readAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
     });
 
-  const IMAGE_EXTS = /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp|tiff?)$/i;
+  // Convert any image file → JPEG Blob via FileReader + canvas
+  const convertToJpeg = async (file: File): Promise<File> => {
+    try {
+      const dataUrl = await readAsDataUrl(file);
+      const jpegBlob = await new Promise<Blob | null>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Limit max dimension to 2048px to avoid memory issues on mobile
+          const MAX = 2048;
+          let { naturalWidth: w, naturalHeight: h } = img;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round((h * MAX) / w); w = MAX; }
+            else       { w = Math.round((w * MAX) / h); h = MAX; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(null); return; }
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.88);
+        };
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      });
+      if (!jpegBlob) return file;
+      return new File(
+        [jpegBlob],
+        file.name.replace(/\.[^.]+$/, '') + '.jpg',
+        { type: 'image/jpeg' },
+      );
+    } catch {
+      return file; // fallback: upload as-is
+    }
+  };
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    const incoming = Array.from(fileList).filter(
-      (f) => f.type.startsWith('image/') || IMAGE_EXTS.test(f.name),
+    // Accept any file — let canvas conversion decide if it's a valid image
+    const incoming = Array.from(fileList).filter((f) =>
+      f.type.startsWith('image/') || f.size > 0,
     );
     if (incoming.length === 0) return;
 
