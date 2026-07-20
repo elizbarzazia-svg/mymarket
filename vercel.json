@@ -1,0 +1,9 @@
+{
+  "buildCommand": "cd market_project && npm run build",
+  "outputDirectory": "market_project/.next",
+  "installCommand": "cd market_project && npm install",
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/$1" }
+  ]
+}
