@@ -39,6 +39,7 @@ export default function SellerPage() {
   // Multiple photos now — first one is the cover image (products.image_url),
   // the rest are saved as extra angles in product_images.
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const photosRef = useRef<PhotoItem[]>([]);
   const [dragActive, setDragActive] = useState(false);
 
   const [errors, setErrors] = useState<Errors>({});
@@ -62,52 +63,58 @@ export default function SellerPage() {
     const all = Array.from(fileList);
     if (all.length === 0) return;
 
-    // Capture current photo count synchronously before any state update
-    setPhotos((prev) => {
-      const room = MAX_PHOTOS - prev.length;
-      const limited = all.slice(0, Math.max(0, room));
+    // Use ref for synchronous current count — avoids side-effects inside updater
+    const currentCount = photosRef.current.length;
+    const room = MAX_PHOTOS - currentCount;
+    const limited = all.slice(0, Math.max(0, room));
+    if (limited.length === 0) return;
 
-      // Show blob URL previews immediately
-      const toAdd = limited.map((file) => ({
-        file,
-        preview: URL.createObjectURL(file),
-      }));
+    const startIdx = currentCount;
 
-      // Start FileReader for every file RIGHT NOW (synchronously) so Android
-      // doesn't lose access to gallery File objects before the callback fires.
-      limited.forEach((file, idx) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          setPhotos((p) => {
-            const next = [...p];
-            const target = prev.length + idx;
-            if (next[target]?.file === file) {
-              next[target] = { ...next[target], preview: reader.result as string };
-            }
-            return next;
-          });
-        };
-        reader.readAsDataURL(file);
-      });
+    // Add photos immediately with blob URL previews
+    const toAdd: PhotoItem[] = limited.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
 
-      return [...prev, ...toAdd];
-    });
-
+    const next = [...photosRef.current, ...toAdd];
+    photosRef.current = next;
+    setPhotos(next);
     setErrors((prev) => ({ ...prev, photo: false }));
+
+    // Start FileReader for every file NOW (synchronously, before any await/timer)
+    // so Android doesn't revoke access to gallery File objects.
+    limited.forEach((file, idx) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setPhotos((p) => {
+          const updated = [...p];
+          const target = startIdx + idx;
+          if (updated[target]?.file === file) {
+            updated[target] = { ...updated[target], preview: dataUrl };
+            photosRef.current = updated;
+          }
+          return updated;
+        });
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const removePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    const next = photosRef.current.filter((_, i) => i !== index);
+    photosRef.current = next;
+    setPhotos(next);
   };
 
   const movePhotoToCover = (index: number) => {
-    setPhotos((prev) => {
-      if (index === 0) return prev;
-      const next = [...prev];
-      const [item] = next.splice(index, 1);
-      next.unshift(item);
-      return next;
-    });
+    if (index === 0) return;
+    const next = [...photosRef.current];
+    const [item] = next.splice(index, 1);
+    next.unshift(item);
+    photosRef.current = next;
+    setPhotos(next);
   };
 
   const validate = (): Errors => ({
