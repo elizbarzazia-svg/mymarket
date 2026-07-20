@@ -57,17 +57,30 @@ export default function SellerPage() {
 
   const MAX_PHOTOS = 6;
 
-  const handleFiles = (fileList: FileList | null) => {
+  // FileReader preview — works on Samsung Internet, old Android Chrome, all browsers
+  const readAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  const handleFiles = async (fileList: FileList | null) => {
     if (!fileList) return;
     const all = Array.from(fileList);
     if (all.length === 0) return;
 
+    // Read previews as data URLs first, then update state once
+    const previews = await Promise.all(
+      all.map((f) => readAsDataUrl(f).catch(() => '')),
+    );
+
     setPhotos((prev) => {
       const room = MAX_PHOTOS - prev.length;
-      const toAdd = all.slice(0, Math.max(0, room)).map((file) => ({
-        file,
-        preview: URL.createObjectURL(file),
-      }));
+      const toAdd = all
+        .slice(0, Math.max(0, room))
+        .map((file, i) => ({ file, preview: previews[i] ?? '' }));
       return [...prev, ...toAdd];
     });
     setErrors((prev) => ({ ...prev, photo: false }));
