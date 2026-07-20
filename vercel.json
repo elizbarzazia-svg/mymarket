@@ -1,5 +1,0 @@
-{
-  "buildCommand": "cd market_project && npm install && npm run build",
-  "outputDirectory": "market_project/.next",
-  "framework": "nextjs"
-}
