@@ -57,62 +57,14 @@ export default function SellerPage() {
 
   const MAX_PHOTOS = 6;
 
-  // Read a file as a data-URL (works for every format Android gallery can return)
-  const readAsDataUrl = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-
-  // Convert any image file → JPEG Blob via FileReader + canvas
-  const convertToJpeg = async (file: File): Promise<File> => {
-    try {
-      const dataUrl = await readAsDataUrl(file);
-      const jpegBlob = await new Promise<Blob | null>((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          // Limit max dimension to 2048px to avoid memory issues on mobile
-          const MAX = 2048;
-          let { naturalWidth: w, naturalHeight: h } = img;
-          if (w > MAX || h > MAX) {
-            if (w > h) { h = Math.round((h * MAX) / w); w = MAX; }
-            else       { w = Math.round((w * MAX) / h); h = MAX; }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { resolve(null); return; }
-          ctx.drawImage(img, 0, 0, w, h);
-          canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.88);
-        };
-        img.onerror = () => resolve(null);
-        img.src = dataUrl;
-      });
-      if (!jpegBlob) return file;
-      return new File(
-        [jpegBlob],
-        file.name.replace(/\.[^.]+$/, '') + '.jpg',
-        { type: 'image/jpeg' },
-      );
-    } catch {
-      return file; // fallback: upload as-is
-    }
-  };
-
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    // Accept any file — let canvas conversion decide if it's a valid image
-    const incoming = Array.from(fileList).filter((f) =>
-      f.type.startsWith('image/') || f.size > 0,
-    );
-    if (incoming.length === 0) return;
+    const all = Array.from(fileList);
+    if (all.length === 0) return;
 
     setPhotos((prev) => {
       const room = MAX_PHOTOS - prev.length;
-      const toAdd = incoming.slice(0, Math.max(0, room)).map((file) => ({
+      const toAdd = all.slice(0, Math.max(0, room)).map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }));
@@ -155,14 +107,16 @@ export default function SellerPage() {
     setStatus('idle');
 
     try {
-      // Upload every photo to Storage first (convert to JPEG so all browsers can display them).
+      // Upload every photo to Storage directly — no conversion, works on all devices.
       const uploadedUrls: string[] = [];
       for (const photo of photos) {
-        const jpegFile = await convertToJpeg(photo.file);
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        const file = photo.file;
+        const ext = file.name.includes('.') ? file.name.split('.').pop()! : 'jpg';
+        const contentType = file.type || 'image/jpeg';
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('product-images')
-          .upload(fileName, jpegFile, { contentType: 'image/jpeg' });
+          .upload(fileName, file, { contentType });
 
         if (uploadError) throw uploadError;
 
