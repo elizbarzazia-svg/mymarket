@@ -253,7 +253,6 @@ export default function SellerPage() {
                       src={photo.preview}
                       alt={`ფოტო ${i + 1}`}
                       className="w-full h-full object-cover"
-                      onError={() => handleImgError(photo.file, i)}
                     />
                     {i === 0 && (
                       <span className="absolute top-1 left-1 bg-vip-border text-black text-[10px] font-semibold rounded-full px-2 py-0.5">
