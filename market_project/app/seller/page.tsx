@@ -237,8 +237,11 @@ export default function SellerPage() {
       setPhotos([]);
       setErrors({});
     } catch (err: any) {
-      setErrorMsg(err.message ?? 'Unknown error');
+      const msg = err?.message ?? err?.error_description ?? JSON.stringify(err) ?? 'Unknown error';
+      setErrorMsg(msg);
       setStatus('error');
+      // Temporary debug alert — remove after issue is identified
+      alert('Upload error: ' + msg);
     } finally {
       setSubmitting(false);
     }
