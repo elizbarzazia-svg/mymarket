@@ -62,28 +62,38 @@ export default function SellerPage() {
     const all = Array.from(fileList);
     if (all.length === 0) return;
 
+    // Capture current photo count synchronously before any state update
     setPhotos((prev) => {
       const room = MAX_PHOTOS - prev.length;
-      const toAdd = all.slice(0, Math.max(0, room)).map((file) => ({
+      const limited = all.slice(0, Math.max(0, room));
+
+      // Show blob URL previews immediately
+      const toAdd = limited.map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }));
+
+      // Start FileReader for every file RIGHT NOW (synchronously) so Android
+      // doesn't lose access to gallery File objects before the callback fires.
+      limited.forEach((file, idx) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setPhotos((p) => {
+            const next = [...p];
+            const target = prev.length + idx;
+            if (next[target]?.file === file) {
+              next[target] = { ...next[target], preview: reader.result as string };
+            }
+            return next;
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+
       return [...prev, ...toAdd];
     });
-    setErrors((prev) => ({ ...prev, photo: false }));
-  };
 
-  // If blob URL can't display (some Android browsers), fall back to FileReader data URL
-  const handleImgError = (file: File, index: number) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotos((prev) =>
-        prev.map((p, i) =>
-          i === index ? { ...p, preview: reader.result as string } : p,
-        ),
-      );
-    };
-    reader.readAsDataURL(file);
+    setErrors((prev) => ({ ...prev, photo: false }));
   };
 
   const removePhoto = (index: number) => {
