@@ -137,13 +137,13 @@ export default function SellerPage() {
     setStatus('idle');
 
     try {
-      // Resize + convert to JPEG before upload (handles large camera photos on Android)
-      const resizeForUpload = (file: File): Promise<File> =>
+      // Resize + convert to JPEG using the already-decoded preview (data URL).
+      // This works for any format (HEIC, large JPEG, etc.) because FileReader
+      // already decoded it and the browser rendered it for the preview.
+      const resizeFromPreview = (preview: string, fallback: File): Promise<File> =>
         new Promise((resolve) => {
-          const url = URL.createObjectURL(file);
           const img = new Image();
           img.onload = () => {
-            URL.revokeObjectURL(url);
             const MAX = 1600;
             let w = img.naturalWidth, h = img.naturalHeight;
             if (w > MAX || h > MAX) {
@@ -153,20 +153,20 @@ export default function SellerPage() {
             const canvas = document.createElement('canvas');
             canvas.width = w; canvas.height = h;
             const ctx = canvas.getContext('2d');
-            if (!ctx) { resolve(file); return; }
+            if (!ctx) { resolve(fallback); return; }
             ctx.drawImage(img, 0, 0, w, h);
             canvas.toBlob((blob) => {
-              if (!blob) { resolve(file); return; }
+              if (!blob) { resolve(fallback); return; }
               resolve(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
             }, 'image/jpeg', 0.85);
           };
-          img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-          img.src = url;
+          img.onerror = () => resolve(fallback);
+          img.src = preview;
         });
 
       const uploadedUrls: string[] = [];
       for (const photo of photos) {
-        const file = await resizeForUpload(photo.file);
+        const file = await resizeFromPreview(photo.preview, photo.file);
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('product-images')
