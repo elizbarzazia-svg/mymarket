@@ -57,33 +57,33 @@ export default function SellerPage() {
 
   const MAX_PHOTOS = 6;
 
-  // FileReader preview — works on Samsung Internet, old Android Chrome, all browsers
-  const readAsDataUrl = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-
-  const handleFiles = async (fileList: FileList | null) => {
+  const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     const all = Array.from(fileList);
     if (all.length === 0) return;
 
-    // Read previews as data URLs first, then update state once
-    const previews = await Promise.all(
-      all.map((f) => readAsDataUrl(f).catch(() => '')),
-    );
-
     setPhotos((prev) => {
       const room = MAX_PHOTOS - prev.length;
-      const toAdd = all
-        .slice(0, Math.max(0, room))
-        .map((file, i) => ({ file, preview: previews[i] ?? '' }));
+      const toAdd = all.slice(0, Math.max(0, room)).map((file) => ({
+        file,
+        preview: URL.createObjectURL(file),
+      }));
       return [...prev, ...toAdd];
     });
     setErrors((prev) => ({ ...prev, photo: false }));
+  };
+
+  // If blob URL can't display (some Android browsers), fall back to FileReader data URL
+  const handleImgError = (file: File, index: number) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotos((prev) =>
+        prev.map((p, i) =>
+          i === index ? { ...p, preview: reader.result as string } : p,
+        ),
+      );
+    };
+    reader.readAsDataURL(file);
   };
 
   const removePhoto = (index: number) => {
@@ -239,7 +239,12 @@ export default function SellerPage() {
                       i === 0 ? 'border-vip-border' : 'border-border-subtle'
                     }`}
                   >
-                    <img src={photo.preview} alt={`ფოტო ${i + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={photo.preview}
+                      alt={`ფოტო ${i + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={() => handleImgError(photo.file, i)}
+                    />
                     {i === 0 && (
                       <span className="absolute top-1 left-1 bg-vip-border text-black text-[10px] font-semibold rounded-full px-2 py-0.5">
                         მთავარი
