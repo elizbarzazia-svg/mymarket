@@ -19,8 +19,9 @@ type Errors = {
 };
 
 type PhotoItem = {
+  id: string;
   file: File;
-  preview: string;
+  preview: string; // data URL (from FileReader) or blob URL fallback
 };
 
 export default function SellerPage() {
@@ -71,8 +72,9 @@ export default function SellerPage() {
 
     const startIdx = currentCount;
 
-    // Add photos immediately with blob URL previews
+    // Add photos immediately with blob URL previews + stable id
     const toAdd: PhotoItem[] = limited.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file,
       preview: URL.createObjectURL(file),
     }));
@@ -82,8 +84,8 @@ export default function SellerPage() {
     setPhotos(next);
     setErrors((prev) => ({ ...prev, photo: false }));
 
-    // Start FileReader for every file NOW (synchronously, before any await/timer)
-    // so Android doesn't revoke access to gallery File objects.
+    // Start FileReader for every file NOW so Android doesn't revoke gallery access.
+    // onerror: keep blob URL — img onError below will retry.
     limited.forEach((file, idx) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -98,6 +100,7 @@ export default function SellerPage() {
           return updated;
         });
       };
+      reader.onerror = () => { /* blob URL stays; img onError handles display */ };
       reader.readAsDataURL(file);
     });
   };
@@ -278,7 +281,7 @@ export default function SellerPage() {
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {photos.map((photo, i) => (
                   <div
-                    key={photo.preview}
+                    key={photo.id}
                     className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
                       i === 0 ? 'border-vip-border' : 'border-border-subtle'
                     }`}
@@ -287,6 +290,23 @@ export default function SellerPage() {
                       src={photo.preview}
                       alt={`ფოტო ${i + 1}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // blob URL failed (e.g. large camera JPEG) — read via FileReader
+                        e.currentTarget.onerror = null;
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          e.currentTarget.src = reader.result as string;
+                          // persist data URL so upload also uses it
+                          setPhotos((p) =>
+                            p.map((ph, pi) =>
+                              pi === i
+                                ? { ...ph, preview: reader.result as string }
+                                : ph,
+                            ),
+                          );
+                        };
+                        reader.readAsDataURL(photo.file);
+                      }}
                     />
                     {i === 0 && (
                       <span className="absolute top-1 left-1 bg-vip-border text-black text-[10px] font-semibold rounded-full px-2 py-0.5">
