@@ -21,7 +21,7 @@ type Errors = {
 type PhotoItem = {
   id: string;
   file: File;
-  preview: string; // data URL (from FileReader) or blob URL fallback
+  preview: string | null; // data URL once FileReader finishes; null while loading
 };
 
 export default function SellerPage() {
@@ -70,13 +70,14 @@ export default function SellerPage() {
     const limited = all.slice(0, Math.max(0, room));
     if (limited.length === 0) return;
 
-    const startIdx = currentCount;
-
-    // Add photos immediately with blob URL previews + stable id
+    // Add photos immediately with no preview yet (shown as a loading spinner).
+    // We intentionally do NOT use URL.createObjectURL() here: many in-app
+    // browsers (Messenger, Instagram, etc.) block blob: URLs inside <img>,
+    // which is what made gallery photos show up as broken images on Android.
     const toAdd: PhotoItem[] = limited.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file,
-      preview: URL.createObjectURL(file),
+      preview: null,
     }));
 
     const next = [...photosRef.current, ...toAdd];
@@ -85,23 +86,30 @@ export default function SellerPage() {
     setErrors((prev) => ({ ...prev, photo: false }));
 
     // Start FileReader for every file NOW so Android doesn't revoke gallery access.
-    // onerror: keep blob URL — img onError below will retry.
-    limited.forEach((file, idx) => {
+    // Match results by stable id (not array position) so reordering/removing
+    // photos while a read is still in flight can't corrupt the wrong item.
+    toAdd.forEach((item) => {
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
         setPhotos((p) => {
-          const updated = [...p];
-          const target = startIdx + idx;
-          if (updated[target]?.file === file) {
-            updated[target] = { ...updated[target], preview: dataUrl };
-            photosRef.current = updated;
-          }
+          const updated = p.map((ph) => (ph.id === item.id ? { ...ph, preview: dataUrl } : ph));
+          photosRef.current = updated;
           return updated;
         });
       };
-      reader.onerror = () => { /* blob URL stays; img onError handles display */ };
-      reader.readAsDataURL(file);
+      reader.onerror = () => {
+        // Last-resort fallback only — may still fail to render in the most
+        // restrictive in-app browsers, but better than being stuck loading.
+        setPhotos((p) => {
+          const updated = p.map((ph) =>
+            ph.id === item.id ? { ...ph, preview: URL.createObjectURL(item.file) } : ph,
+          );
+          photosRef.current = updated;
+          return updated;
+        });
+      };
+      reader.readAsDataURL(item.file);
     });
   };
 
@@ -143,8 +151,9 @@ export default function SellerPage() {
       // Resize + convert to JPEG using the already-decoded preview (data URL).
       // This works for any format (HEIC, large JPEG, etc.) because FileReader
       // already decoded it and the browser rendered it for the preview.
-      const resizeFromPreview = (preview: string, fallback: File): Promise<File> =>
+      const resizeFromPreview = (preview: string | null, fallback: File): Promise<File> =>
         new Promise((resolve) => {
+          if (!preview) { resolve(fallback); return; }
           const img = new Image();
           img.onload = () => {
             const MAX = 1600;
@@ -286,28 +295,17 @@ export default function SellerPage() {
                       i === 0 ? 'border-vip-border' : 'border-border-subtle'
                     }`}
                   >
-                    <img
-                      src={photo.preview}
-                      alt={`ფოტო ${i + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // blob URL failed (e.g. large camera JPEG) — read via FileReader
-                        e.currentTarget.onerror = null;
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          e.currentTarget.src = reader.result as string;
-                          // persist data URL so upload also uses it
-                          setPhotos((p) =>
-                            p.map((ph, pi) =>
-                              pi === i
-                                ? { ...ph, preview: reader.result as string }
-                                : ph,
-                            ),
-                          );
-                        };
-                        reader.readAsDataURL(photo.file);
-                      }}
-                    />
+                    {photo.preview ? (
+                      <img
+                        src={photo.preview}
+                        alt={`ფოტო ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-input-bg">
+                        <span className="w-5 h-5 border-2 border-vip-border/40 border-t-vip-border rounded-full animate-spin" />
+                      </div>
+                    )}
                     {i === 0 && (
                       <span className="absolute top-1 left-1 bg-vip-border text-black text-[10px] font-semibold rounded-full px-2 py-0.5">
                         მთავარი
@@ -556,10 +554,14 @@ export default function SellerPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || photos.some((p) => p.preview === null)}
             className="mt-2 bg-vip-border text-black font-semibold rounded-lg py-3 hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {submitting ? t('seller.submitting') : t('seller.submit')}
+            {submitting
+              ? t('seller.submitting')
+              : photos.some((p) => p.preview === null)
+              ? '...'
+              : t('seller.submit')}
           </button>
 
           {status === 'success' && (
